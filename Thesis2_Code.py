@@ -117,9 +117,11 @@ def estimate_co_ppm(rs_ro_ratio):
     """
     if rs_ro_ratio <= 0:
       return float('inf')
-    # Formula derived from (6, 1) and (0.01, 1000)
     estimated_ppm = 0.176 * (rs_ro_ratio)**(-1.05)
-    return estimated_ppm
+    # Check if the estimated value is within the typical detection range (1-1000ppm)
+    if 1 <= estimated_ppm <= 1000:
+        return estimated_ppm
+    return "Out of Range"
 
 def estimate_ethanol_ppm(rs_ro_ratio):
     """
@@ -127,9 +129,11 @@ def estimate_ethanol_ppm(rs_ro_ratio):
     """
     if rs_ro_ratio <= 0:
       return float('inf')
-    # Formula derived from (0.78, 5) and (0.09, 85)
     estimated_ppm = 1.15 * (rs_ro_ratio)**(-2.05)
-    return estimated_ppm
+    # Check if the estimated value is within the typical detection range (10-500ppm)
+    if 10 <= estimated_ppm <= 500:
+        return estimated_ppm
+    return "Out of Range"
     
 def estimate_hydrogen_ppm(rs_ro_ratio):
     """
@@ -137,9 +141,11 @@ def estimate_hydrogen_ppm(rs_ro_ratio):
     """
     if rs_ro_ratio <= 0:
       return float('inf')
-    # Formula derived from (0.80, 3) and (0.08, 100)
     estimated_ppm = 1.6 * (rs_ro_ratio)**(-1.7)
-    return estimated_ppm
+    # Check if the estimated value is within the typical detection range (1-1000ppm)
+    if 1 <= estimated_ppm <= 1000:
+        return estimated_ppm
+    return "Out of Range"
 
 def estimate_ammonia_ppm_mics(rs_ro_ratio):
     """
@@ -147,9 +153,11 @@ def estimate_ammonia_ppm_mics(rs_ro_ratio):
     """
     if rs_ro_ratio <= 0:
       return float('inf')
-    # Formula derived from (0.99, 1) and (0.60, 100)
     estimated_ppm = 1290 * (rs_ro_ratio)**(6.72)
-    return estimated_ppm
+    # Check if the estimated value is within the typical detection range (1-500ppm)
+    if 1 <= estimated_ppm <= 500:
+        return estimated_ppm
+    return "Out of Range"
     
 def estimate_methane_ppm(rs_ro_ratio):
     """
@@ -157,9 +165,11 @@ def estimate_methane_ppm(rs_ro_ratio):
     """
     if rs_ro_ratio <= 0:
       return float('inf')
-    # Formula derived from (0.80, 4500) and (0.75, 10000)
     estimated_ppm = 1.25e16 * (rs_ro_ratio)**(-28)
-    return estimated_ppm
+    # Check if the estimated value is within the typical detection range (>1000ppm)
+    if estimated_ppm > 1000:
+        return estimated_ppm
+    return "Out of Range"
 
 def main():
     """
@@ -225,11 +235,11 @@ def main():
             print(f"Raw ADC Value: {raw_adc_value_mics}")
             print(f"Current Voltage: {current_voltage_mics:.4f}V")
             print(f"Resistance Ratio (Rs/Ro): {rs_ro_ratio_mics:.2f}")
-            print(f"CO Concentration: {co_ppm:.2f} ppm")
-            print(f"Ethanol Concentration: {ethanol_ppm:.2f} ppm")
-            print(f"Hydrogen Concentration: {hydrogen_ppm:.2f} ppm")
-            print(f"Ammonia Concentration: {ammonia_ppm_mics:.2f} ppm")
-            print(f"Methane Concentration: {methane_ppm:.2f} ppm")
+            print(f"CO Concentration: {co_ppm} ppm")
+            print(f"Ethanol Concentration: {ethanol_ppm} ppm")
+            print(f"Hydrogen Concentration: {hydrogen_ppm} ppm")
+            print(f"Ammonia Concentration: {ammonia_ppm_mics} ppm")
+            print(f"Methane Concentration: {methane_ppm} ppm")
             
             print("-" * 30)
             time.sleep(2)
