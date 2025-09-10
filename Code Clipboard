@@ -7,7 +7,6 @@ import math
 
 # --- User-Defined Constants and Hardware Configuration ---
 # You MUST fill in these values based on your specific circuit and components.
-# Information from the TGS 2602, MiCS-5524, and TGS 2603 datasheets is referenced below.
 
 # --- TGS 2602 Sensor Configuration ---
 # The load resistor (RL) in your voltage divider circuit.
@@ -23,9 +22,15 @@ ADC_CHANNEL_MICS = ADS.P1
 
 # --- TGS 2603 Sensor Configuration ---
 # The load resistor (RL) in your voltage divider circuit.
-LOAD_RESISTOR_OHMS_TGS2603 = 2545.0 # Ohms (Ω) - Based on your measurement
+LOAD_RESISTOR_OHMS_TGS2603 = 2545.0 # Ohms (Ω)
 # The ADC channel your TGS 2603 sensor is connected to.
 ADC_CHANNEL_TGS2603 = ADS.P2
+
+# --- MiCS-2714 Sensor Configuration ---
+# The load resistor (RL) on your DFRobot MiCS-2714 module.
+LOAD_RESISTOR_OHMS_MICS2714 = 820.0 # Ohms (Ω)
+# The ADC channel your MiCS-2714 sensor is connected to.
+ADC_CHANNEL_MICS2714 = ADS.P3
 
 # --- ADS1115 ADC Configuration ---
 # The gain setting for your ADS1115. This affects the full-scale voltage range.
@@ -152,7 +157,6 @@ def estimate_trimethylamine_ppm_tgs2603(rs_ro_ratio):
     """Estimates Trimethylamine based on the TGS 2603's Rs/Ro ratio."""
     if rs_ro_ratio <= 0:
         return float('inf')
-    # Formula derived from points (0.89, 0.3) and (0.07, 10)
     estimated_ppm = 0.2556 * (rs_ro_ratio)**(-1.379)
     return f"{estimated_ppm:.2f}"
 
@@ -160,8 +164,24 @@ def estimate_methyl_mercaptan_ppm_tgs2603(rs_ro_ratio):
     """Estimates Methyl Mercaptan based on the TGS 2603's Rs/Ro ratio."""
     if rs_ro_ratio <= 0:
         return float('inf')
-    # Formula derived from points (0.89, 0.5) and (0.08, 50)
     estimated_ppm = 0.399 * (rs_ro_ratio)**(-1.91)
+    return f"{estimated_ppm:.2f}"
+
+# --- MiCS-2714 Estimation Functions ---
+def estimate_no2_ppm_mics2714(rs_ro_ratio):
+    """Estimates NO2 concentration based on the MiCS-2714's Rs/Ro ratio."""
+    if rs_ro_ratio <= 0:
+        return float('inf')
+    # Formula derived from points (0.08, 0.02) and (60, 8)
+    estimated_ppm = 0.1966 * (rs_ro_ratio)**(0.905)
+    return f"{estimated_ppm:.2f}"
+
+def estimate_no_ppm_mics2714(rs_ro_ratio):
+    """Estimates NO concentration based on the MiCS-2714's Rs/Ro ratio."""
+    if rs_ro_ratio <= 0:
+        return float('inf')
+    # Formula derived from points (1, 0.1) and (0.80, 1)
+    estimated_ppm = 0.1 * (rs_ro_ratio)**(-10.32)
     return f"{estimated_ppm:.2f}"
 
 def main():
@@ -177,20 +197,22 @@ def main():
         # Create the ADS1115 object
         ads = ADS.ADS1115(i2c, gain=ADS1115_GAIN)
         
-        # Create analog input objects for all three sensors
+        # Create analog input objects for all four sensors
         tgs2602_sensor_adc = AnalogIn(ads, ADC_CHANNEL_TGS2602)
         mics_sensor_adc = AnalogIn(ads, ADC_CHANNEL_MICS)
         tgs2603_sensor_adc = AnalogIn(ads, ADC_CHANNEL_TGS2603)
+        mics2714_sensor_adc = AnalogIn(ads, ADC_CHANNEL_MICS2714)
         
     except Exception as e:
         print(f"Failed to initialize ADS1115: {e}")
         print("Please ensure your wiring is correct and the `adafruit-circuitpython-ads1x15` library is installed.")
         return
 
-    # Calibrate all three sensors
+    # Calibrate all four sensors
     baseline_ro_tgs2602 = calibrate_sensor(tgs2602_sensor_adc, "TGS 2602", LOAD_RESISTOR_OHMS_TGS2602)
     baseline_ro_mics = calibrate_sensor(mics_sensor_adc, "MiCS-5524", LOAD_RESISTOR_OHMS_MICS)
     baseline_ro_tgs2603 = calibrate_sensor(tgs2603_sensor_adc, "TGS 2603", LOAD_RESISTOR_OHMS_TGS2603)
+    baseline_ro_mics2714 = calibrate_sensor(mics2714_sensor_adc, "MiCS-2714", LOAD_RESISTOR_OHMS_MICS2714)
     
     print("\n--- Starting Gas Detection ---")
     
@@ -222,6 +244,14 @@ def main():
             
             trimethylamine_ppm = estimate_trimethylamine_ppm_tgs2603(rs_ro_ratio_tgs2603)
             methyl_mercaptan_ppm = estimate_methyl_mercaptan_ppm_tgs2603(rs_ro_ratio_tgs2603)
+
+            # --- Read and process MiCS-2714 data ---
+            current_voltage_mics2714 = mics2714_sensor_adc.voltage
+            current_rs_mics2714 = calculate_sensor_resistance(current_voltage_mics2714, LOAD_RESISTOR_OHMS_MICS2714)
+            rs_ro_ratio_mics2714 = current_rs_mics2714 / baseline_ro_mics2714 if baseline_ro_mics2714 > 0 else float('inf')
+
+            no2_ppm = estimate_no2_ppm_mics2714(rs_ro_ratio_mics2714)
+            no_ppm = estimate_no_ppm_mics2714(rs_ro_ratio_mics2714)
             
             # --- Print Combined Output ---
             print(f"--- Sensor Data (ADC Gain: {ADS1115_GAIN}) ---")
@@ -243,6 +273,11 @@ def main():
             print(f"Resistance Ratio (Rs/Ro): {rs_ro_ratio_tgs2603:.2f}")
             print(f"Trimethylamine Concentration: {trimethylamine_ppm} ppm")
             print(f"Methyl Mercaptan Concentration: {methyl_mercaptan_ppm} ppm")
+            
+            print(f"\n--- MiCS-2714 ---")
+            print(f"Resistance Ratio (Rs/Ro): {rs_ro_ratio_mics2714:.2f}")
+            print(f"NO2 Concentration: {no2_ppm} ppm")
+            print(f"NO Concentration: {no_ppm} ppm")
             
             print("-" * 30)
             time.sleep(2)
