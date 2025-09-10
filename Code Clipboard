@@ -117,45 +117,35 @@ def estimate_co_ppm_mics(rs_ro_ratio):
     if rs_ro_ratio <= 0:
         return float('inf')
     estimated_ppm = 0.176 * (rs_ro_ratio)**(-1.05)
-    if 1 <= estimated_ppm <= 1000:
-        return f"{estimated_ppm:.2f}"
-    return "Out of Range"
+    return f"{estimated_ppm:.2f}"
 
 def estimate_ethanol_ppm_mics(rs_ro_ratio):
     """Estimates Ethanol concentration from the MiCS-5524."""
     if rs_ro_ratio <= 0:
         return float('inf')
     estimated_ppm = 1.15 * (rs_ro_ratio)**(-2.05)
-    if 10 <= estimated_ppm <= 500:
-        return f"{estimated_ppm:.2f}"
-    return "Out of Range"
+    return f"{estimated_ppm:.2f}"
 
 def estimate_hydrogen_ppm_mics(rs_ro_ratio):
     """Estimates Hydrogen concentration from the MiCS-5524."""
     if rs_ro_ratio <= 0:
         return float('inf')
     estimated_ppm = 1.6 * (rs_ro_ratio)**(-1.7)
-    if 1 <= estimated_ppm <= 1000:
-        return f"{estimated_ppm:.2f}"
-    return "Out of Range"
+    return f"{estimated_ppm:.2f}"
 
 def estimate_ammonia_ppm_mics(rs_ro_ratio):
     """Estimates Ammonia concentration from the MiCS-5524."""
     if rs_ro_ratio <= 0:
         return float('inf')
     estimated_ppm = 1290 * (rs_ro_ratio)**(6.72)
-    if 1 <= estimated_ppm <= 500:
-        return f"{estimated_ppm:.2f}"
-    return "Out of Range"
+    return f"{estimated_ppm:.2f}"
 
 def estimate_methane_ppm_mics(rs_ro_ratio):
     """Estimates Methane concentration from the MiCS-5524."""
     if rs_ro_ratio <= 0:
         return float('inf')
     estimated_ppm = 1.25e16 * (rs_ro_ratio)**(-28)
-    if estimated_ppm > 1000:
-        return f"{estimated_ppm:.2f}"
-    return "Out of Range"
+    return f"{estimated_ppm:.2f}"
 
 # --- TGS 2603 Estimation Functions ---
 def estimate_trimethylamine_ppm_tgs2603(rs_ro_ratio):
@@ -164,9 +154,7 @@ def estimate_trimethylamine_ppm_tgs2603(rs_ro_ratio):
         return float('inf')
     # Formula derived from points (0.89, 0.3) and (0.07, 10)
     estimated_ppm = 0.2556 * (rs_ro_ratio)**(-1.379)
-    if 0.3 <= estimated_ppm <= 10:
-        return f"{estimated_ppm:.2f}"
-    return "Out of Range"
+    return f"{estimated_ppm:.2f}"
 
 def estimate_methyl_mercaptan_ppm_tgs2603(rs_ro_ratio):
     """Estimates Methyl Mercaptan based on the TGS 2603's Rs/Ro ratio."""
@@ -174,9 +162,7 @@ def estimate_methyl_mercaptan_ppm_tgs2603(rs_ro_ratio):
         return float('inf')
     # Formula derived from points (0.89, 0.5) and (0.08, 50)
     estimated_ppm = 0.399 * (rs_ro_ratio)**(-1.91)
-    if 0.5 <= estimated_ppm <= 50:
-        return f"{estimated_ppm:.2f}"
-    return "Out of Range"
+    return f"{estimated_ppm:.2f}"
 
 def main():
     """
