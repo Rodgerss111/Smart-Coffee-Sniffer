@@ -7,19 +7,25 @@ import math
 
 # --- User-Defined Constants and Hardware Configuration ---
 # You MUST fill in these values based on your specific circuit and components.
-# Information from the TGS 2602 datasheet (provided by user) is referenced below.
+# Information from the TGS 2602, MiCS-5524, and TGS 2603 datasheets is referenced below.
 
 # --- TGS 2602 Sensor Configuration ---
 # The load resistor (RL) in your voltage divider circuit.
-LOAD_RESISTOR_OHMS_TGS = 453.0  # Ohms (Ω) - Based on your measurement
+LOAD_RESISTOR_OHMS_TGS2602 = 453.0  # Ohms (Ω)
 # The ADC channel your TGS 2602 sensor is connected to.
-ADC_CHANNEL_TGS = ADS.P0
+ADC_CHANNEL_TGS2602 = ADS.P0
 
 # --- MiCS-5524 Sensor Configuration ---
 # The Adafruit MiCS-5524 breakout board uses a fixed 10 kΩ load resistor.
 LOAD_RESISTOR_OHMS_MICS = 10000.0 # Ohms (Ω)
 # The ADC channel your MiCS-5524 sensor is connected to.
 ADC_CHANNEL_MICS = ADS.P1
+
+# --- TGS 2603 Sensor Configuration ---
+# The load resistor (RL) in your voltage divider circuit.
+LOAD_RESISTOR_OHMS_TGS2603 = 2545.0 # Ohms (Ω) - Based on your measurement
+# The ADC channel your TGS 2603 sensor is connected to.
+ADC_CHANNEL_TGS2603 = ADS.P2
 
 # --- ADS1115 ADC Configuration ---
 # The gain setting for your ADS1115. This affects the full-scale voltage range.
@@ -58,7 +64,7 @@ def calculate_sensor_resistance(adc_voltage, load_resistor_ohms):
     rs = load_resistor_ohms * (adc_reference_voltage - adc_voltage) / adc_voltage
     return rs
 
-def calibrate_sensor(adc_object, sensor_name):
+def calibrate_sensor(adc_object, sensor_name, load_resistor_ohms):
     """
     Performs a calibration routine to determine the sensor's baseline resistance (Ro)
     in a clean air environment.
@@ -66,6 +72,7 @@ def calibrate_sensor(adc_object, sensor_name):
     Args:
         adc_object (AnalogIn): The analog input object for the sensor.
         sensor_name (str): The name of the sensor being calibrated.
+        load_resistor_ohms (float): The load resistor for the specific sensor.
         
     Returns:
         float: The average baseline resistance (Ro) in Ohms.
@@ -80,7 +87,7 @@ def calibrate_sensor(adc_object, sensor_name):
     total_resistance = 0.0
     for i in range(CALIBRATION_READING_COUNT):
         voltage = adc_object.voltage
-        resistance = calculate_sensor_resistance(voltage, LOAD_RESISTOR_OHMS_TGS if sensor_name == 'TGS 2602' else LOAD_RESISTOR_OHMS_MICS)
+        resistance = calculate_sensor_resistance(voltage, load_resistor_ohms)
         total_resistance += resistance
         print(f"Reading {i+1}/{CALIBRATION_READING_COUNT} - Voltage: {voltage:.4f}V, Resistance: {resistance:.2f}Ω")
         time.sleep(0.1)
@@ -90,76 +97,86 @@ def calibrate_sensor(adc_object, sensor_name):
     return avg_resistance
 
 # --- TGS 2602 Estimation Functions ---
-
-def estimate_ammonia_ppm_tgs(rs_ro_ratio):
-    """
-    Estimates the concentration of Ammonia based on the TGS 2602's Rs/Ro ratio.
-    """
+def estimate_ammonia_ppm_tgs2602(rs_ro_ratio):
+    """Estimates Ammonia based on the TGS 2602's Rs/Ro ratio."""
     if rs_ro_ratio <= 0:
-      return float('inf')
+        return float('inf')
     estimated_ppm = 0.1036 * (rs_ro_ratio)**(-6.8685)
     return estimated_ppm
 
-def estimate_hydrogen_sulfide_ppm_tgs(rs_ro_ratio):
-    """
-    Estimates the concentration of Hydrogen Sulfide based on the TGS 2602's Rs/Ro ratio.
-    """
+def estimate_hydrogen_sulfide_ppm_tgs2602(rs_ro_ratio):
+    """Estimates Hydrogen Sulfide based on the TGS 2602's Rs/Ro ratio."""
     if rs_ro_ratio <= 0:
-      return float('inf')
+        return float('inf')
     estimated_ppm = 0.0758 * (rs_ro_ratio)**(-2.7174)
     return estimated_ppm
 
 # --- MiCS-5524 Estimation Functions ---
-
-def estimate_co_ppm(rs_ro_ratio):
-    """
-    Estimates CO concentration from the MiCS-5524 based on user-provided points.
-    """
+def estimate_co_ppm_mics(rs_ro_ratio):
+    """Estimates CO concentration from the MiCS-5524."""
     if rs_ro_ratio <= 0:
-      return float('inf')
-    # Formula derived from (6, 1) and (0.01, 1000)
+        return float('inf')
     estimated_ppm = 0.176 * (rs_ro_ratio)**(-1.05)
-    return estimated_ppm
+    if 1 <= estimated_ppm <= 1000:
+        return f"{estimated_ppm:.2f}"
+    return "Out of Range"
 
-def estimate_ethanol_ppm(rs_ro_ratio):
-    """
-    Estimates Ethanol concentration from the MiCS-5524 based on user-provided points.
-    """
+def estimate_ethanol_ppm_mics(rs_ro_ratio):
+    """Estimates Ethanol concentration from the MiCS-5524."""
     if rs_ro_ratio <= 0:
-      return float('inf')
-    # Formula derived from (0.78, 5) and (0.09, 85)
+        return float('inf')
     estimated_ppm = 1.15 * (rs_ro_ratio)**(-2.05)
-    return estimated_ppm
-    
-def estimate_hydrogen_ppm(rs_ro_ratio):
-    """
-    Estimates Hydrogen concentration from the MiCS-5524 based on user-provided points.
-    """
+    if 10 <= estimated_ppm <= 500:
+        return f"{estimated_ppm:.2f}"
+    return "Out of Range"
+
+def estimate_hydrogen_ppm_mics(rs_ro_ratio):
+    """Estimates Hydrogen concentration from the MiCS-5524."""
     if rs_ro_ratio <= 0:
-      return float('inf')
-    # Formula derived from (0.80, 3) and (0.08, 100)
+        return float('inf')
     estimated_ppm = 1.6 * (rs_ro_ratio)**(-1.7)
-    return estimated_ppm
+    if 1 <= estimated_ppm <= 1000:
+        return f"{estimated_ppm:.2f}"
+    return "Out of Range"
 
 def estimate_ammonia_ppm_mics(rs_ro_ratio):
-    """
-    Estimates Ammonia concentration from the MiCS-5524 based on user-provided points.
-    """
+    """Estimates Ammonia concentration from the MiCS-5524."""
     if rs_ro_ratio <= 0:
-      return float('inf')
-    # Formula derived from (0.99, 1) and (0.60, 100)
+        return float('inf')
     estimated_ppm = 1290 * (rs_ro_ratio)**(6.72)
-    return estimated_ppm
-    
-def estimate_methane_ppm(rs_ro_ratio):
-    """
-    Estimates Methane concentration from the MiCS-5524 based on user-provided points.
-    """
+    if 1 <= estimated_ppm <= 500:
+        return f"{estimated_ppm:.2f}"
+    return "Out of Range"
+
+def estimate_methane_ppm_mics(rs_ro_ratio):
+    """Estimates Methane concentration from the MiCS-5524."""
     if rs_ro_ratio <= 0:
-      return float('inf')
-    # Formula derived from (0.80, 4500) and (0.75, 10000)
+        return float('inf')
     estimated_ppm = 1.25e16 * (rs_ro_ratio)**(-28)
-    return estimated_ppm
+    if estimated_ppm > 1000:
+        return f"{estimated_ppm:.2f}"
+    return "Out of Range"
+
+# --- TGS 2603 Estimation Functions ---
+def estimate_trimethylamine_ppm_tgs2603(rs_ro_ratio):
+    """Estimates Trimethylamine based on the TGS 2603's Rs/Ro ratio."""
+    if rs_ro_ratio <= 0:
+        return float('inf')
+    # Formula derived from points (0.89, 0.3) and (0.07, 10)
+    estimated_ppm = 0.2556 * (rs_ro_ratio)**(-1.379)
+    if 0.3 <= estimated_ppm <= 10:
+        return f"{estimated_ppm:.2f}"
+    return "Out of Range"
+
+def estimate_methyl_mercaptan_ppm_tgs2603(rs_ro_ratio):
+    """Estimates Methyl Mercaptan based on the TGS 2603's Rs/Ro ratio."""
+    if rs_ro_ratio <= 0:
+        return float('inf')
+    # Formula derived from points (0.89, 0.5) and (0.08, 50)
+    estimated_ppm = 0.399 * (rs_ro_ratio)**(-1.91)
+    if 0.5 <= estimated_ppm <= 50:
+        return f"{estimated_ppm:.2f}"
+    return "Out of Range"
 
 def main():
     """
@@ -174,62 +191,72 @@ def main():
         # Create the ADS1115 object
         ads = ADS.ADS1115(i2c, gain=ADS1115_GAIN)
         
-        # Create analog input objects for both sensors
-        tgs_sensor_adc = AnalogIn(ads, ADC_CHANNEL_TGS)
+        # Create analog input objects for all three sensors
+        tgs2602_sensor_adc = AnalogIn(ads, ADC_CHANNEL_TGS2602)
         mics_sensor_adc = AnalogIn(ads, ADC_CHANNEL_MICS)
+        tgs2603_sensor_adc = AnalogIn(ads, ADC_CHANNEL_TGS2603)
         
     except Exception as e:
         print(f"Failed to initialize ADS1115: {e}")
         print("Please ensure your wiring is correct and the `adafruit-circuitpython-ads1x15` library is installed.")
         return
 
-    # Calibrate both sensors
-    baseline_ro_tgs = calibrate_sensor(tgs_sensor_adc, "TGS 2602")
-    baseline_ro_mics = calibrate_sensor(mics_sensor_adc, "MiCS-5524")
+    # Calibrate all three sensors
+    baseline_ro_tgs2602 = calibrate_sensor(tgs2602_sensor_adc, "TGS 2602", LOAD_RESISTOR_OHMS_TGS2602)
+    baseline_ro_mics = calibrate_sensor(mics_sensor_adc, "MiCS-5524", LOAD_RESISTOR_OHMS_MICS)
+    baseline_ro_tgs2603 = calibrate_sensor(tgs2603_sensor_adc, "TGS 2603", LOAD_RESISTOR_OHMS_TGS2603)
     
     print("\n--- Starting Gas Detection ---")
     
     while True:
         try:
-            # Read and process TGS 2602 data
-            raw_adc_value_tgs = tgs_sensor_adc.value
-            current_voltage_tgs = tgs_sensor_adc.voltage
-            current_rs_tgs = calculate_sensor_resistance(current_voltage_tgs, LOAD_RESISTOR_OHMS_TGS)
-            rs_ro_ratio_tgs = current_rs_tgs / baseline_ro_tgs if baseline_ro_tgs > 0 else float('inf')
+            # --- Read and process TGS 2602 data ---
+            current_voltage_tgs2602 = tgs2602_sensor_adc.voltage
+            current_rs_tgs2602 = calculate_sensor_resistance(current_voltage_tgs2602, LOAD_RESISTOR_OHMS_TGS2602)
+            rs_ro_ratio_tgs2602 = current_rs_tgs2602 / baseline_ro_tgs2602 if baseline_ro_tgs2602 > 0 else float('inf')
             
-            ammonia_ppm_tgs = estimate_ammonia_ppm_tgs(rs_ro_ratio_tgs)
-            h2s_ppm_tgs = estimate_hydrogen_sulfide_ppm_tgs(rs_ro_ratio_tgs)
+            ammonia_ppm_tgs2602 = estimate_ammonia_ppm_tgs2602(rs_ro_ratio_tgs2602)
+            h2s_ppm_tgs2602 = estimate_hydrogen_sulfide_ppm_tgs2602(rs_ro_ratio_tgs2602)
             
-            # Read and process MiCS-5524 data
-            raw_adc_value_mics = mics_sensor_adc.value
+            # --- Read and process MiCS-5524 data ---
             current_voltage_mics = mics_sensor_adc.voltage
             current_rs_mics = calculate_sensor_resistance(current_voltage_mics, LOAD_RESISTOR_OHMS_MICS)
             rs_ro_ratio_mics = current_rs_mics / baseline_ro_mics if baseline_ro_mics > 0 else float('inf')
             
-            co_ppm = estimate_co_ppm(rs_ro_ratio_mics)
-            ethanol_ppm = estimate_ethanol_ppm(rs_ro_ratio_mics)
-            hydrogen_ppm = estimate_hydrogen_ppm(rs_ro_ratio_mics)
+            co_ppm = estimate_co_ppm_mics(rs_ro_ratio_mics)
+            ethanol_ppm = estimate_ethanol_ppm_mics(rs_ro_ratio_mics)
+            hydrogen_ppm = estimate_hydrogen_ppm_mics(rs_ro_ratio_mics)
             ammonia_ppm_mics = estimate_ammonia_ppm_mics(rs_ro_ratio_mics)
-            methane_ppm = estimate_methane_ppm(rs_ro_ratio_mics)
+            methane_ppm = estimate_methane_ppm_mics(rs_ro_ratio_mics)
             
-            # Print combined output
+            # --- Read and process TGS 2603 data ---
+            current_voltage_tgs2603 = tgs2603_sensor_adc.voltage
+            current_rs_tgs2603 = calculate_sensor_resistance(current_voltage_tgs2603, LOAD_RESISTOR_OHMS_TGS2603)
+            rs_ro_ratio_tgs2603 = current_rs_tgs2603 / baseline_ro_tgs2603 if baseline_ro_tgs2603 > 0 else float('inf')
+            
+            trimethylamine_ppm = estimate_trimethylamine_ppm_tgs2603(rs_ro_ratio_tgs2603)
+            methyl_mercaptan_ppm = estimate_methyl_mercaptan_ppm_tgs2603(rs_ro_ratio_tgs2603)
+            
+            # --- Print Combined Output ---
             print(f"--- Sensor Data (ADC Gain: {ADS1115_GAIN}) ---")
+            
             print(f"\n--- TGS 2602 ---")
-            print(f"Raw ADC Value: {raw_adc_value_tgs}")
-            print(f"Current Voltage: {current_voltage_tgs:.4f}V")
-            print(f"Resistance Ratio (Rs/Ro): {rs_ro_ratio_tgs:.2f}")
-            print(f"Ammonia Concentration: {ammonia_ppm_tgs:.2f} ppm")
-            print(f"Hydrogen Sulfide Concentration: {h2s_ppm_tgs:.2f} ppm")
+            print(f"Resistance Ratio (Rs/Ro): {rs_ro_ratio_tgs2602:.2f}")
+            print(f"Ammonia Concentration: {ammonia_ppm_tgs2602:.2f} ppm")
+            print(f"Hydrogen Sulfide Concentration: {h2s_ppm_tgs2602:.2f} ppm")
             
             print(f"\n--- MiCS-5524 ---")
-            print(f"Raw ADC Value: {raw_adc_value_mics}")
-            print(f"Current Voltage: {current_voltage_mics:.4f}V")
             print(f"Resistance Ratio (Rs/Ro): {rs_ro_ratio_mics:.2f}")
-            print(f"CO Concentration: {co_ppm:.2f} ppm")
-            print(f"Ethanol Concentration: {ethanol_ppm:.2f} ppm")
-            print(f"Hydrogen Concentration: {hydrogen_ppm:.2f} ppm")
-            print(f"Ammonia Concentration: {ammonia_ppm_mics:.2f} ppm")
-            print(f"Methane Concentration: {methane_ppm:.2f} ppm")
+            print(f"CO Concentration: {co_ppm} ppm")
+            print(f"Ethanol Concentration: {ethanol_ppm} ppm")
+            print(f"Hydrogen Concentration: {hydrogen_ppm} ppm")
+            print(f"Ammonia Concentration: {ammonia_ppm_mics} ppm")
+            print(f"Methane Concentration: {methane_ppm} ppm")
+            
+            print(f"\n--- TGS 2603 ---")
+            print(f"Resistance Ratio (Rs/Ro): {rs_ro_ratio_tgs2603:.2f}")
+            print(f"Trimethylamine Concentration: {trimethylamine_ppm} ppm")
+            print(f"Methyl Mercaptan Concentration: {methyl_mercaptan_ppm} ppm")
             
             print("-" * 30)
             time.sleep(2)
